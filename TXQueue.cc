@@ -1,4 +1,4 @@
-tx_queue_log_file#include <stdio.h>
+#include <stdio.h>
 #include <string.h>
 #include <omnetpp.h>
 #include <fstream>
@@ -12,6 +12,8 @@ private:
 
 
   cQueue queue; // models the queue sub-system
+  int max_len; //maximum length reached by the queue
+
 
   /**
   // a reference to the output transmission channel, we avoid using a
@@ -27,22 +29,13 @@ private:
   simtime_t txFinishTime; //absolute time
   simtime_t txDelay;
 
-  //stats collection
-  double queue_len_acc; //accumulator variable to compute the measurement
-  double len_prev; // temporary variable to store the previous length of the queue
-  double prev_time; // temporary variable to store the time the last message has arrived
-  double queue_len_avg;  //average queue length
-  int max_len; //maximum length reached by the queue
-
+  // stats collection (additional, just as a self-check)
   // limited size queue: need to know the number of arrived and lost packets
   // to compute the loss probability
   double pcktArrived;
   double pcktDropped;
   double pLoss;
 
-
-  // log file creation
-  ofstream tx_queue_log_file;
 
 protected:
   // The following redefined virtual function holds the algorithm.
@@ -80,8 +73,6 @@ void TXQueue::initialize()
   // Initialize variables.
   endOfTx = new cMessage("endOfTx");
   max_len = par("maxLength");
-
-
   txChannel = gate("out") -> getTransmissionChannel();
   txFinishTime = simTime();
 
@@ -89,15 +80,7 @@ void TXQueue::initialize()
 
 void TXQueue::handleMessage(cMessage *msg){
   /*
-  // I can use this event for the camputation of the integral since the
-  // self messages are set so that both arrivals and departures are
-  // regolati with exponentials
-  // in both cases the module will receive a msg that notifies the arrival
-  // or departure and will update the value of the integraldell'integrale
-  measureQueue();
-  queue_log_file << simTime()<<"\t"<<queue_len_avg<<endl;
-  // the self msg notifies if the customer has finished service
-  // the customer exits the queue and goes to the synk module
+  //
   */
   if (msg == endOfTx) {
     // if another packet is available in the queue
@@ -155,41 +138,6 @@ void TXQueue::refreshDisplay() const{
 
 }
 
-/*
-void TXQueue::measureQueue(){
-
-Computation of the average queue length via accumulator variable.
-We use make the computation before the msg is inserted or removed
-to from the queue so that we refer to the previous value of the queueLength
-
-length   ^
-|                             2_________________
-|             1_______________|/////////////////
-|_____________|/////////////////////////////////
-|-------------|---------------|---------------------> time
-t0              t1
-get queueLength()      0                1          ...
-compute integral
-insert/remove          1                2          ...
-
-
-
-
-// computing the average length of the queue
-
-queue_len_acc += queue.getLength()*(simTime().dbl() - prev_time);
-EV<<"simTime("<<simTime()<<")"<<endl;
-EV<<"prev_time"<<prev_time<<endl;
-prev_time=SIMTIME_DBL(simTime());
-queue_len_avg = queue_len_acc/simTime();
-EV<<"actual simTime:\t"<<simTime().dbl()<<endl;
-EV<<"Queue length avg:"<<queue_len_avg<<endl;
-
-// computing the loss probability
-
-
-}*/
-
 
 
 void TXQueue::finish() {
@@ -206,8 +154,6 @@ void TXQueue::finish() {
   pLoss = pcktDropped/pcktArrived;
 
   EV << "\n***********************************************************\n";
-  EV << getFullName() <<":\t" << pLoss <<"\n";
+  EV << getFullName() <<") Packet Loss Probability:\t" << pLoss <<"\n";
   EV << "\n***********************************************************\n";
-
-  queue_log_file.close(); // close the file at the end
 }
